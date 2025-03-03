@@ -1,0 +1,13 @@
+{
+    "ngw": {
+        "host": "https://wobasgis.nextgis.com",
+        "login": "wobas",
+        "password": "Pidor_9998"
+    },
+    "top_layer": {
+        "id": 47
+    },
+    "bottom_layer": {
+        "id": 48
+    }
+}
