@@ -215,8 +215,8 @@ def get_version_and_epoch_by_id(layer_id):
 read_config()
 
 # get initial state of layers
-get_layer_gpkg(ngw_host, ngw_login, ngw_password, top_layer_id, path_to_save_tmp_files+"\layers")
-get_layer_gpkg(ngw_host, ngw_login, ngw_password, bottom_layer_id, path_to_save_tmp_files+"\layers")
+get_layer_gpkg(ngw_host, ngw_login, ngw_password, top_layer_id, path_to_save_tmp_files+"\\layers")
+get_layer_gpkg(ngw_host, ngw_login, ngw_password, bottom_layer_id, path_to_save_tmp_files+"\\layers")
 
 # create file with current versions of layers
 save_file_with_cur_versions(path_to_save_tmp_files)
