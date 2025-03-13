@@ -9,5 +9,10 @@
     },
     "bottom_layer": {
         "id": 48
+    },
+    "script_parametrs": {
+        "tmp_files_path": "./tmp/",
+        "update_period_sec": 60
     }
+    
 }
