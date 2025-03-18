@@ -78,12 +78,14 @@ class LinkParametersHolder:
                     if item['layer_id'] == self.top_layer_id and 'geom' in item:
                         wkb_data = base64.b64decode(item['geom'])
                         current_geom = ogr.CreateGeometryFromWkb(wkb_data)
-                        print("Координаты точки:", current_geom)
-                        # for index, row in bottom_layer_geometry.iterrows():
-                            # geom = Polygon(row['geometry'])
+                        point_coords = (current_geom.GetX(), current_geom.GetY())
+                        point = Point(point_coords)
+                        # print("Координаты точки:", point.wkt)
+                        for index, row in bottom_layer_geometry.iterrows():
+                            geom = Polygon(row['geometry'])
                             # print("Координаты вершин полигона: ", geom)
-                            # if geom.contains(current_geom):
-                            #     print("Попадос")
+                            if geom.contains(point):
+                                print(f"Точка с координатами {point.wkt} попала в границы полигона")
                 schedule.every(self.update_period_sec).seconds.do(lambda: self.__check_update())
 
                 while True:
