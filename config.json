@@ -11,8 +11,9 @@
         "id": 48
     },
     "script_parametrs": {
+        "geofence_mode": "point-polygon",
         "tmp_files_path": "./tmp/",
-        "update_period_sec": 60
+        "update_period_sec": 10,
+        "message_type": "console_message"
     }
-    
 }
