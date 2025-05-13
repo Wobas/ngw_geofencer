@@ -1,6 +1,6 @@
 {
     "ngw": {
-        "host": "https://wobasgis.nextgis.com",
+        "host": "YOUR_NGW_LINK",
         "login": "YOUR_LOGIN",
         "password": "YOUR_PWD"
     },
