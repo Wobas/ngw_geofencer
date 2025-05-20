@@ -1,0 +1,26 @@
+{
+    "ngw": {
+        "host": "YOUR_NGW_LINK",
+        "login": "YOUR_LOGIN",
+        "password": "YOUR_PWD"
+    },
+    "top_layer": {
+        "id": 49,
+        "attribute_params_for_message": ["name"],
+        "buffer": 100
+    },
+    "bottom_layer": {
+        "id": 50, 
+        "attribute_params_for_message": ["name"],
+        "buffer": 200
+    },
+    "script_parameters": {
+        "geofence_mode": "intersection",
+        "tmp_files_path": "./tmp/",
+        "update_period_sec": 10,
+        "message_type": "telegram_message"
+    },
+    "optional_parameters": {
+        "tg_user_id": YOUR_USER_ID_NUMBER
+    }
+}
