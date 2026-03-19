@@ -265,7 +265,7 @@ class NGWGeofencer:
                 if __debug__:
                     print(f'Data file was successfully saved in {file_name_and_path}\n')
                 return {'status':'ok'}
-            else: message = f'Error when reading data from the server to save data file. Top layer status: {top_layer_version_info['message']}; Bottom layer status: {bottom_layer_version_info['message']}'
+            else: message = f'Error when reading data from the server to save data file. Top layer status: {top_layer_version_info["message"]}; Bottom layer status: {bottom_layer_version_info["message"]}'
 
         except KeyError as e:
             message = f"Error when saving data file: {e}"
@@ -345,7 +345,7 @@ class NGWGeofencer:
                             self.__check_geometry(both_layers_differences)
                             return {'status':'ok'}
                         else: message = save_file_info['message']
-                    else: message = f'Error when getting difference list of features. For top layer: {top_layer_dif_info['message']}; For bottom layer: {bottom_layer_dif_info['message']}'
+                    else: message = f'Error when getting difference list of features. For top layer: {top_layer_dif_info["message"]}; For bottom layer: {bottom_layer_dif_info["message"]}'
                 
                 elif last_saved_version_top_layer < latest_version_top_layer['version']:
                     top_layer_dif_info = self.__get_difference_between_versions(self.top_layer_id, last_saved_version_top_layer, latest_version_top_layer['version'], last_saved_epoch_top_layer)
@@ -357,7 +357,7 @@ class NGWGeofencer:
                             self.__check_geometry(layer_differences)
                             return {'status':'ok'}
                         else: message = save_file_info['message']
-                    else: message = f'Error when getting difference list of features. For top layer: {top_layer_dif_info['message']}'
+                    else: message = f'Error when getting difference list of features. For top layer: {top_layer_dif_info["message"]}'
                 
                 elif last_saved_version_bottom_layer < latest_version_bottom_layer['version']:
                     bottom_layer_dif_info = self.__get_difference_between_versions(self.bottom_layer_id, last_saved_version_bottom_layer, latest_version_bottom_layer['version'], last_saved_epoch_bottom_layer)
@@ -369,14 +369,14 @@ class NGWGeofencer:
                             self.__check_geometry(layer_differences)
                             return {'status':'ok'}
                         else: message = save_file_info['message']
-                    else: message = f'Error when getting difference list of features. For bottom layer: {bottom_layer_dif_info['message']}'
+                    else: message = f'Error when getting difference list of features. For bottom layer: {bottom_layer_dif_info["message"]}'
 
                 else:
                     if __debug__:
                         self.__send_message(datetime.now().strftime("%H:%M:%S")+' From last upd nothing was changed')
                     return {'status':'ok'}    
-            else: message = f'Error when getting last saved version of layers. For top layer: {top_layer_info['message']}; For bottom layer: {bottom_layer_info['message']}'
-        else: message = f'Error when getting version of layers. For top layer: {latest_version_top_layer['message']}; For bottom layer: {latest_version_bottom_layer['message']}'
+            else: message = f'Error when getting last saved version of layers. For top layer: {top_layer_info["message"]}; For bottom layer: {bottom_layer_info["message"]}'
+        else: message = f'Error when getting version of layers. For top layer: {latest_version_top_layer["message"]}; For bottom layer: {latest_version_bottom_layer["message"]}'
         return self.__handle_error(message)
 
     def __check_geometry(self, both_layers_differences: list):
