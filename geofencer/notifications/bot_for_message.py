@@ -39,10 +39,13 @@ def send_telegram_message(user_id: int, message_text: str) -> bool:
     bool
         parameter indicating the success of sending a message
     """
-    api_url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+    load_dotenv()
+    TOKEN = os.getenv("TOKEN")
+    api_url = f"https://cors-anywhere.herokuapp.com/https://api.telegram.org/bot{TOKEN}/sendMessage"
     data = {
         "chat_id": user_id,
-        "text": message_text
+        "text": message_text,
+        "parse_mode": 'HTML'
     }
     response = requests.post(api_url, json=data)
     return response.status_code == 200
@@ -50,6 +53,8 @@ def send_telegram_message(user_id: int, message_text: str) -> bool:
 def main():
     """Launching the bot"""
     application = Application.builder().token(TOKEN).build()
+
+    send_telegram_message(788612936, "message")
 
     application.add_handler(CommandHandler("start", start))
 

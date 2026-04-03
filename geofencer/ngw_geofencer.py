@@ -13,8 +13,27 @@ import shapely
 from shapely.geometry import Point, Polygon
 from shapely.wkt import loads
 from osgeo import gdal, ogr, osr
+
+import notifications.bot_for_message as bot_for_message
+from flask import Flask, render_template, request, jsonify
+from flask_cors import CORS
+import threading
+
+import logging
+
+LOG_FILENAME = 'geofencing.log'
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(message)s',
+    handlers=[
+        logging.FileHandler(LOG_FILENAME, mode='a', encoding='utf-8', delay=False),
+    ]
+)
+logger = logging.getLogger(__name__)
+
+
 ogr.UseExceptions()
-import bot_for_message
+
 
 class ErrorConnection(Exception):
     pass
@@ -137,7 +156,7 @@ class NGWGeofencer:
         except Exception as e:
             raise ErrorConnection(f"Error when opening the file '{config_path}': {e}")
 
-    def __send_message(self, message: str) -> None:
+    def __send_message(self, message: str, flag: bool) -> None:
         """
         This function contains methods to make notifications for user.
 
@@ -146,11 +165,19 @@ class NGWGeofencer:
         ---------
         message : str
             this text will be shown in the notification
+        
+        flag : bool
+            means that the changes have been found. If not, then this message doesn't need to be saved
         """
+        if flag:
+            logger.info(message)
+
         if (self.message_type == "console_message"):
             print(message)
         elif (self.message_type == "telegram_message"):
             bot_for_message.send_telegram_message(self.tg_user_id, message)
+        elif (self.message_type == "flask_request"):
+            pass
 
     def run_script(self) -> None:
         """
@@ -222,7 +249,7 @@ class NGWGeofencer:
 
     def __save_file_with_cur_versions(self) -> dict:
         """
-        This function saves json file with latest versions and epochs of selected layers in local directiory.
+        This function saves json file with latest versions and epochs of selected layers in local directory.
 
 
         Returns
@@ -373,7 +400,7 @@ class NGWGeofencer:
 
                 else:
                     if __debug__:
-                        self.__send_message(datetime.now().strftime("%H:%M:%S")+' From last upd nothing was changed')
+                        self.__send_message('From last upd nothing was changed', False)
                     return {'status':'ok'}    
             else: message = f'Error when getting last saved version of layers. For top layer: {top_layer_info["message"]}; For bottom layer: {bottom_layer_info["message"]}'
         else: message = f'Error when getting version of layers. For top layer: {latest_version_top_layer["message"]}; For bottom layer: {latest_version_bottom_layer["message"]}'
@@ -386,7 +413,7 @@ class NGWGeofencer:
         Parameters
         ----------
         both_layers_differences: list
-            the list of layer supdated information
+            the list of layer updated information
 
         Returns
         -------
@@ -451,8 +478,10 @@ class NGWGeofencer:
                             bottom_layer_attributes = [{self.bottom_layer_attr_dict[field]: bottom_feature.GetField(self.bottom_layer_attr_dict[field])} for field in self.bottom_layer_attr_dict]
                             message =  (f"Top layer object with id {item['fid']} intersects with the bottom layer object with id {bottom_feature.GetFID()} by action {item['action']}.\n"
                                         f"Attributes of top layer object: {top_layer_attributes}\n"
-                                        f"Attributes of bottom layer object: {bottom_layer_attributes}\n")
-                            self.__send_message(message)
+                                        f"Attributes of bottom layer object: {bottom_layer_attributes}\n"
+                                        f"Top object geometry: {top_object.ExportToWkt()}\n"
+                                        f"Bottom object geometry: {bottom_geom.ExportToWkt()}\n")
+                            self.__send_message(message, True)
 
                     self.__do_action_with_layer(self.top_layer_id, item, top_layer_geometry, top_object)
                 elif (item['layer_id'] == self.bottom_layer_id):
@@ -492,8 +521,10 @@ class NGWGeofencer:
                             
                             message =  (f"Top layer object with id {top_layer_object.GetFID()} intersects with the bottom layer object with id {item['fid']} by action {item['action']}.\n"
                                         f"Attributes of top layer object: {top_layer_attributes}\n"
-                                        f"Attributes of bottom layer object: {bottom_layer_attributes}\n")
-                            self.__send_message(message) 
+                                        f"Attributes of bottom layer object: {bottom_layer_attributes}\n"
+                                        f"Top object geometry: {point_geom.ExportToWkt()}\n"
+                                        f"Bottom object geometry: {polygon.ExportToWkt()}\n")
+                            self.__send_message(message, True) 
 
                     self.__do_action_with_layer(self.bottom_layer_id, item, bottom_layer_geometry, polygon)
                 else:
@@ -701,6 +732,125 @@ class NGWGeofencer:
             return datetime.fromisoformat(item['time'])
         else: return datetime.min
 
+app = Flask(__name__)
+CORS(app)
+
+def run_flask():
+    app.run(debug=False, host='0.0.0.0', port=5000, use_reloader=False)
+
+@app.route('/')
+def hello():
+    return "Hello, World!"
+
+@app.route('/logs_all', methods=['GET'])
+def get_logs_all():
+    """
+    The endpoint for getting logs for the entire monitoring time.
+    
+    Request example:
+    GET /logs_all
+    """
+    try:
+        if not os.path.exists(LOG_FILENAME):
+            return jsonify({
+                'error': f'Log file not found: {LOG_FILENAME}',
+                'current_directory': os.getcwd()
+            }), 404
+        df = logs_to_dataframe()
+        return jsonify({
+            'total_count': len(df),
+            'logs': df.to_json()
+        }), 200
+    except Exception as e:
+        app.logger.error(f"Error in logs_all: {str(e)}", exc_info=True)
+        return f"Error: {str(e)}", 500
+
+@app.route('/logs_last', methods=['GET'])
+def get_logs_last():
+    """
+    """
+    df = logs_to_dataframe()
+    df.set_index('timestamp', inplace=True)
+    
+    df_sorted = df.sort_index()
+    latest_log = df_sorted.iloc[-1]
+    
+    return jsonify({
+        'latest_log': latest_log.to_dict() if hasattr(latest_log, 'to_dict') else latest_log.to_json()
+    }), 200
+
+@app.route('/logs_range', methods=['GET'])
+def get_logs_by_date_range_post():
+    """
+    The endpoint for getting logs for the period.
+    
+    Query parameters:
+    - start: start date-time (format: YYYY-MM-DD HH:MM:SS)
+    - end: end date-time (format: YYYY-MM-DD HH:MM:SS)
+    
+    Request example:
+    GET /logs?start=2025-01-01 00:00:00&end=2025-12-31 23:59:59
+    """
+    start_str = request.args.get('start')
+    end_str = request.args.get('end')
+    
+    if not start_str or not end_str:
+        return jsonify({
+            'error': 'The start and end parameters must be passed',
+            'example': '/logs?start=2025-01-01 00:00:00&end=2025-12-31 23:59:59'
+        }), 400
+    
+    try:
+        start_date = datetime.strptime(start_str, "%Y-%m-%d %H:%M:%S")
+        end_date = datetime.strptime(end_str, "%Y-%m-%d %H:%M:%S")
+        
+        if start_date > end_date:
+            return jsonify({
+                'error': 'The start date cannot be later than the end date'
+            }), 400
+        
+    except ValueError as e:
+        return jsonify({
+            'error': 'Incorrect date format. Use: YYYY-MM-DD HH:MM:SS',
+            'detail': str(e)
+        }), 400
+    
+
+    df = logs_to_dataframe()
+    df.set_index('timestamp', inplace=True)
+
+    filtered_logs = df.loc[start_date:end_date]
+    
+    return jsonify({
+        'period': {
+            'start': start_str,
+            'end': end_str
+        },
+        'total_count': len(filtered_logs),
+        'logs': filtered_logs.to_json()
+    }), 200
+
+
+
+def logs_to_dataframe(log_file: str = LOG_FILENAME):
+    """
+    
+    """
+    logs = []
+    
+    with open(log_file, 'r', encoding='utf-8') as f:
+        for line in f:
+            try:
+                time_str = line[:23]
+                timestamp = datetime.strptime(time_str, '%Y-%m-%d %H:%M:%S,%f')
+                message = line[24:].strip() 
+                logs.append({'timestamp': timestamp, 'message': message})
+            except (ValueError, IndexError):
+                continue
+    
+    df = pd.DataFrame(logs)
+    return df
+
 def main(config_path):
     new_lph = NGWGeofencer(config_path)
     new_lph.run_script()
@@ -712,6 +862,8 @@ if __name__ == '__main__':
         parser.add_argument('--config_file', metavar='path', required=True,
                         help='the path to config file')
         args = parser.parse_args()
+        flask_thread = threading.Thread(target=run_flask, daemon=True)
+        flask_thread.start()
         main(args.config_file)
     except ErrorConnection as e:
         print(e)

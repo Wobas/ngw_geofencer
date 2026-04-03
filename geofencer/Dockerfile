@@ -17,7 +17,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-EXPOSE 8000
+EXPOSE 5000
 ENV PYTHONUNBUFFERED=1
 
-CMD ["python", "ngw_geofencer.py", "--config_file", "config.json"]
+CMD ["sh", "-c", "python ngw_geofencer.py --config_file config.json & python geometry_modifier.py"]

@@ -1,3 +1,4 @@
 .env
 geofencing_with_web_interface/
 config.json
+geometry_modifier/
