@@ -3,6 +3,7 @@ FROM python:3.11-slim
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y \
+    supervisor \
     gdal-bin \
     libgdal-dev \
     build-essential \
@@ -10,6 +11,7 @@ RUN apt-get update && apt-get install -y \
 
 ENV CPLUS_INCLUDE_PATH=/usr/include/gdal
 ENV C_INCLUDE_PATH=/usr/include/gdal
+ENV PYTHONUNBUFFERED=1
 
 COPY requirements.txt .
 
@@ -17,7 +19,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-EXPOSE 5000
-ENV PYTHONUNBUFFERED=1
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-CMD ["sh", "-c", "python ngw_geofencer.py --config_file config.json & python geometry_modifier.py"]
+COPY .env .
+
+EXPOSE 5000
+
+CMD ["/usr/bin/supervisord", "-n"]
