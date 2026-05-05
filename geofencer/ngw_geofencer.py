@@ -1,17 +1,10 @@
 import requests
 import json
-import jsonschema
-from jsonschema import validate
 import os
 import schedule
 import time
 import base64
 from datetime import datetime
-import pandas as pd
-import geopandas as gpd
-import shapely
-from shapely.geometry import Point, Polygon
-from shapely.wkt import loads
 from osgeo import gdal, ogr, osr
 
 import notifications.bot_for_message as bot_for_message
