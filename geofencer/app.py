@@ -116,7 +116,7 @@ def get_logs_by_date_range_post():
                 'error': f'Data base not found: {data_broker.DB_PATH}',
                 'current_directory': os.getcwd()
             }), 404
-        row = data_broker.read_datetime_range_events()
+        row = data_broker.read_datetime_range_events(start_date.timestamp(), end_date.timestamp())
         return jsonify({
             'logs': [
                 {

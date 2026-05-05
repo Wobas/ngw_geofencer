@@ -77,8 +77,21 @@ def read_last_event():
 
     return row
 
-def read_datetime_range_events():
-    pass
+def read_datetime_range_events(start_ts, end_ts):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    cursor.execute(f"""
+        SELECT ts, message, geom_1, geom_2
+        FROM {TABLE_NAME}
+        WHERE ts BETWEEN ? AND ?
+        ORDER BY ts DESC
+    """, (start_ts, end_ts))
+
+    rows = cursor.fetchall()
+    conn.close()
+
+    return rows
 
 def read_last_seconds(seconds_number: int):
     now = int(datetime.now(timezone.utc).timestamp())
