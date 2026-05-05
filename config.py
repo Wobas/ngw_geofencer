@@ -1,3 +1,4 @@
+import geofencer.geometry_modifier as gm
 
 
 def generate_config_file(ngw_host: str, ngw_login: str, ngw_password: str, top_layer_id: int, top_layer_attrs: list[str], top_layer_buffer: int, bottom_layer_id: int, bottom_layer_attrs: list[str], bottom_layer_buffer: int,
@@ -30,4 +31,10 @@ def generate_config_file(ngw_host: str, ngw_login: str, ngw_password: str, top_l
             else:
                 f.write(f'{key}={value}\n')
 
-generate_config_file("https://sandbox.nextgis.com","administrator","demodemo", 3409, ["id"], 100, 3410, ["id"], 200, "intersection", "./tmp/", 10, "console_message", 788612936)
+
+if __name__ == '__main__':
+    group_id = gm.get_resource_id()
+    top_layer_id = gm.get_point_layer_id(group_id)
+    bottom_layer_id = gm.get_polygon_layer_id(group_id)
+
+    generate_config_file(gm.BASE_URL, gm.USERNAME, gm.PASSWORD, int(top_layer_id), ["id"], 100, int(bottom_layer_id), ["id"], 200, "intersection", "./tmp/", 10, "console_message", 788612936)
