@@ -15,22 +15,20 @@ from shapely.wkt import loads
 from osgeo import gdal, ogr, osr
 
 import notifications.bot_for_message as bot_for_message
-from flask import Flask, render_template, request, jsonify
-from flask_cors import CORS
-import threading
+import data_broker
+from dotenv import load_dotenv
+
 
 import logging
 
 LOG_FILENAME = 'geofencing.log'
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(message)s',
-    handlers=[
-        logging.FileHandler(LOG_FILENAME, mode='a', encoding='utf-8', delay=False),
-    ]
-)
-logger = logging.getLogger(__name__)
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+handler = logging.FileHandler(LOG_FILENAME, mode='a', encoding='utf-8', delay=False)
+formatter = logging.Formatter('%(asctime)s - %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 ogr.UseExceptions()
 
@@ -42,119 +40,40 @@ class NGWGeofencer:
 
     DATA_FILE_NAME = 'data.json'
 
-    # The schema to check the correctness of config.json
-    CONFIG_SCHEMA = {
-        "type": "object",
-        "properties": {
-            "ngw": {
-                "type": "object",
-                "properties": {
-                    "host": {"type": "string", "format": "uri"},
-                    "login": {"type": "string"},
-                    "password": {"type": "string"},
-                },
-                "required": ["host", "login", "password"],
-            },
-            "top_layer": {
-                "type": "object",
-                "properties": {
-                    "id": {"type": "number"},
-                    "attribute_params_for_message": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "minItems": 1
-                    },
-                    "buffer": {"type": "number"},
-                },
-                "required": ["id", "attribute_params_for_message", "buffer"],
-            },
-            "bottom_layer": {
-                "type": "object",
-                "properties": {
-                    "id": {"type": "number"},
-                    "attribute_params_for_message": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "minItems": 1
-                    },
-                    "buffer": {"type": "number"},
-                },
-                "required": ["id", "attribute_params_for_message", "buffer"],
-            },
-            "script_parameters": {
-                "type": "object",
-                "properties": {
-                    "geofence_mode": {
-                        "type": "string",
-                        "enum": ["intersection"]
-                    },
-                    "tmp_files_path": {"type": "string"},
-                    "update_period_sec": {"type": "number", "minimum": 1},
-                    "message_type": {
-                        "type": "string",
-                        "enum": ["console_message", "telegram_message"]
-                    },
-                },
-                "required": ["geofence_mode", "tmp_files_path", "update_period_sec", "message_type"],
-            },
-            "optional_parameters": {
-                "type": "object",
-                "properties": {
-                    "tg_user_id": {"type": "number"},
-                },
-            },
-        },
-        "required": ["ngw", "top_layer", "bottom_layer", "script_parameters"],
-    }
+    def __init__(self):
+        load_dotenv()
+        # general parameters
+        self.ngw_host = os.getenv("NGW_HOST")
+        self.ngw_login = os.getenv("NGW_LOGIN")
+        self.ngw_password = os.getenv("NGW_PASSWORD")
+        
+        # top layer parameters
+        self.top_layer_id = int(os.getenv("TOP_LAYER_ID"))
+        self.top_layer_attr_params = os.getenv("TOP_LAYER_ATTRIBUTE_PARAMS_FOR_MESSAGE")
+        self.top_layer_buffer = int(os.getenv("TOP_LAYER_BUFFER"))
+        
+        # bottom layer parameters
+        self.bottom_layer_id = int(os.getenv("BOTTOM_LAYER_ID"))
+        self.bottom_layer_attr_params = os.getenv("BOTTOM_LAYER_ATTRIBUTE_PARAMS_FOR_MESSAGE")
+        self.bottom_layer_buffer = int(os.getenv("BOTTOM_LAYER_BUFFER"))
+        
+        # script working parameters
+        self.geofence_mode = os.getenv("SCRIPT_PARAMETERS_GEOFENCE_MODE")
+        self.tmp_files_path = os.getenv("SCRIPT_PARAMETERS_TMP_FILES_PATH")
+        self.update_period_sec = int(os.getenv("SCRIPT_PARAMETERS_UPDATE_PERIOD_SEC"))
+        self.message_type = os.getenv("SCRIPT_PARAMETERS_MESSAGE_TYPE")
+        self.tg_user_id = os.getenv("OPTIONAL_PARAMETERS_TG_USER_ID")
 
-    def __init__(self, config_path='config.json'):
-        try:
-            with open(config_path, 'r') as config_file:
-                config = json.load(config_file)
-                
-                validate(instance=config, schema=self.CONFIG_SCHEMA)
-
-                # general parameters
-                self.ngw_host = config['ngw']['host']
-                self.ngw_login = config['ngw']['login']
-                self.ngw_password = config['ngw']['password']
-                
-                # top layer parameters
-                self.top_layer_id = config['top_layer']['id']
-                self.top_layer_attr_params = config['top_layer']['attribute_params_for_message']
-                self.top_layer_buffer = config['top_layer']['buffer']
-                
-                # bottom layer parameters
-                self.bottom_layer_id = config['bottom_layer']['id']
-                self.bottom_layer_attr_params = config['bottom_layer']['attribute_params_for_message']
-                self.bottom_layer_buffer = config['bottom_layer']['buffer']
-                
-                # script working parameters
-                self.geofence_mode = config['script_parameters']['geofence_mode']
-                self.tmp_files_path = config['script_parameters']['tmp_files_path']
-                self.update_period_sec = config['script_parameters']['update_period_sec']
-                self.message_type = config['script_parameters']['message_type']
-                self.tg_user_id = config['optional_parameters']['tg_user_id']
-
-            if __debug__:
-                print(  f"hostname: {self.ngw_host}\n"
-                        f"login: {self.ngw_login}\n"
-                        f"password: {self.ngw_password}\n"
-                        f"top layer info: id - {self.top_layer_id}; fields to display - {self.top_layer_attr_params}; buffer size - {self.top_layer_buffer}\n"
-                        f"bottom layer info: id - {self.bottom_layer_id}; fields to display - {self.bottom_layer_attr_params}; buffer size - {self.bottom_layer_buffer}\n"
-                        f"geofence mode: {self.geofence_mode}\n"
-                        f"tmp files path: {self.tmp_files_path}\n"
-                        f"update period in secs: {self.update_period_sec}\n"
-                        f"message type: {self.message_type}\n"
-                        )
-        except FileNotFoundError:
-            raise ErrorConnection(f"Error: File '{config_path}' not found.")
-        except json.JSONDecodeError:
-            raise ErrorConnection(f"Error: File '{config_path}' contains invalid JSON.")
-        except jsonschema.ValidationError as e:
-            raise ErrorConnection(f"Ошибка в конфигурации файла: {e.message}")
-        except Exception as e:
-            raise ErrorConnection(f"Error when opening the file '{config_path}': {e}")
+        print(  f"hostname: {self.ngw_host}\n"
+                f"login: {self.ngw_login}\n"
+                f"password: {self.ngw_password}\n"
+                f"top layer info: id - {self.top_layer_id}; fields to display - {self.top_layer_attr_params}; buffer size - {self.top_layer_buffer}\n"
+                f"bottom layer info: id - {self.bottom_layer_id}; fields to display - {self.bottom_layer_attr_params}; buffer size - {self.bottom_layer_buffer}\n"
+                f"geofence mode: {self.geofence_mode}\n"
+                f"tmp files path: {self.tmp_files_path}\n"
+                f"update period in secs: {self.update_period_sec}\n"
+                f"message type: {self.message_type}\n"
+                )
 
     def __send_message(self, message: str, flag: bool) -> None:
         """
@@ -482,6 +401,7 @@ class NGWGeofencer:
                                         f"Top object geometry: {top_object.ExportToWkt()}\n"
                                         f"Bottom object geometry: {bottom_geom.ExportToWkt()}\n")
                             self.__send_message(message, True)
+                            data_broker.write_event(message, top_object.ExportToWkt(), bottom_geom.ExportToWkt())
 
                     self.__do_action_with_layer(self.top_layer_id, item, top_layer_geometry, top_object)
                 elif (item['layer_id'] == self.bottom_layer_id):
@@ -525,6 +445,7 @@ class NGWGeofencer:
                                         f"Top object geometry: {point_geom.ExportToWkt()}\n"
                                         f"Bottom object geometry: {polygon.ExportToWkt()}\n")
                             self.__send_message(message, True) 
+                            data_broker.write_event(message, point_geom.ExportToWkt(), polygon.ExportToWkt())
 
                     self.__do_action_with_layer(self.bottom_layer_id, item, bottom_layer_geometry, polygon)
                 else:
@@ -732,138 +653,16 @@ class NGWGeofencer:
             return datetime.fromisoformat(item['time'])
         else: return datetime.min
 
-app = Flask(__name__)
-CORS(app)
-
-def run_flask():
-    app.run(debug=False, host='0.0.0.0', port=5000, use_reloader=False)
-
-@app.route('/')
-def hello():
-    return "Hello, World!"
-
-@app.route('/logs_all', methods=['GET'])
-def get_logs_all():
-    """
-    The endpoint for getting logs for the entire monitoring time.
-    
-    Request example:
-    GET /logs_all
-    """
-    try:
-        if not os.path.exists(LOG_FILENAME):
-            return jsonify({
-                'error': f'Log file not found: {LOG_FILENAME}',
-                'current_directory': os.getcwd()
-            }), 404
-        df = logs_to_dataframe()
-        return jsonify({
-            'total_count': len(df),
-            'logs': df.to_json()
-        }), 200
-    except Exception as e:
-        app.logger.error(f"Error in logs_all: {str(e)}", exc_info=True)
-        return f"Error: {str(e)}", 500
-
-@app.route('/logs_last', methods=['GET'])
-def get_logs_last():
-    """
-    """
-    df = logs_to_dataframe()
-    df.set_index('timestamp', inplace=True)
-    
-    df_sorted = df.sort_index()
-    latest_log = df_sorted.iloc[-1]
-    
-    return jsonify({
-        'latest_log': latest_log.to_dict() if hasattr(latest_log, 'to_dict') else latest_log.to_json()
-    }), 200
-
-@app.route('/logs_range', methods=['GET'])
-def get_logs_by_date_range_post():
-    """
-    The endpoint for getting logs for the period.
-    
-    Query parameters:
-    - start: start date-time (format: YYYY-MM-DD HH:MM:SS)
-    - end: end date-time (format: YYYY-MM-DD HH:MM:SS)
-    
-    Request example:
-    GET /logs?start=2025-01-01 00:00:00&end=2025-12-31 23:59:59
-    """
-    start_str = request.args.get('start')
-    end_str = request.args.get('end')
-    
-    if not start_str or not end_str:
-        return jsonify({
-            'error': 'The start and end parameters must be passed',
-            'example': '/logs?start=2025-01-01 00:00:00&end=2025-12-31 23:59:59'
-        }), 400
-    
-    try:
-        start_date = datetime.strptime(start_str, "%Y-%m-%d %H:%M:%S")
-        end_date = datetime.strptime(end_str, "%Y-%m-%d %H:%M:%S")
-        
-        if start_date > end_date:
-            return jsonify({
-                'error': 'The start date cannot be later than the end date'
-            }), 400
-        
-    except ValueError as e:
-        return jsonify({
-            'error': 'Incorrect date format. Use: YYYY-MM-DD HH:MM:SS',
-            'detail': str(e)
-        }), 400
-    
-
-    df = logs_to_dataframe()
-    df.set_index('timestamp', inplace=True)
-
-    filtered_logs = df.loc[start_date:end_date]
-    
-    return jsonify({
-        'period': {
-            'start': start_str,
-            'end': end_str
-        },
-        'total_count': len(filtered_logs),
-        'logs': filtered_logs.to_json()
-    }), 200
 
 
 
-def logs_to_dataframe(log_file: str = LOG_FILENAME):
-    """
-    
-    """
-    logs = []
-    
-    with open(log_file, 'r', encoding='utf-8') as f:
-        for line in f:
-            try:
-                time_str = line[:23]
-                timestamp = datetime.strptime(time_str, '%Y-%m-%d %H:%M:%S,%f')
-                message = line[24:].strip() 
-                logs.append({'timestamp': timestamp, 'message': message})
-            except (ValueError, IndexError):
-                continue
-    
-    df = pd.DataFrame(logs)
-    return df
-
-def main(config_path):
-    new_lph = NGWGeofencer(config_path)
+def main():
+    new_lph = NGWGeofencer()
     new_lph.run_script()
 
 if __name__ == '__main__':
     try:
-        import argparse
-        parser = argparse.ArgumentParser(description='Checking the configuration file')
-        parser.add_argument('--config_file', metavar='path', required=True,
-                        help='the path to config file')
-        args = parser.parse_args()
-        flask_thread = threading.Thread(target=run_flask, daemon=True)
-        flask_thread.start()
-        main(args.config_file)
+        data_broker.init_db()
+        main()
     except ErrorConnection as e:
         print(e)
