@@ -3,3 +3,4 @@ geofencing_with_web_interface/
 config.json
 geometry_modifier/
 some_text.txt
+geofencer/__pycache__

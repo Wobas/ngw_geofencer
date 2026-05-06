@@ -52,6 +52,8 @@ POLYGON_LAYER_PAYLOAD = {
     }
 }
 
+INITIAL_POINT_GEOM = "POINT (0.0 0.0)"
+INITIAL_POLYGON_GEOM = "POLYGON ((10.0 30.0, 40.0 40.0, 40.0 0.0, 20.0 10.0, 10.0 30.0))"
 
 def create_resource(payload:dict) -> str:
     url = f"{BASE_URL}/api/resource/"
@@ -97,39 +99,22 @@ def get_resource_id() -> str:
         print("Создана группа:", group_id)
     return group_id
 
-def get_point_layer_id(parent_id:str) -> str:
-    point_layer_id = search_resource(TOP_LAYER_KEYNAME)
-    if (not point_layer_id):
-        point_layer_payload = POINT_LAYER_PAYLOAD
-        point_layer_payload["resource"]["parent"] = {"id": int(parent_id)}
+def get_layer_id(parent_id:str, layer_keyname:str, layer_payload:dict, geom:str) -> str:
+    layer_id = search_resource(layer_keyname)
+    if (not layer_id):
+        layer_payload = layer_payload
+        layer_payload["resource"]["parent"] = {"id": int(parent_id)}
 
-        point_layer_id = create_resource(point_layer_payload)
-        print("Point layer:", point_layer_id)
-
-        point_geom = "POINT (0.0 0.0)"
-
-        create_feature(point_layer_id, point_geom)
-        print("Добавлена точка")
-    return point_layer_id
-
-def get_polygon_layer_id(parent_id:str) -> str:
-    polygon_layer_id = search_resource(BOTTOM_LAYER_KEYNAME)
-    if (not polygon_layer_id):
-        polygon_layer_payload = POLYGON_LAYER_PAYLOAD
-        polygon_layer_payload["resource"]["parent"] = {"id": int(parent_id)}
-
-        polygon_layer_id = create_resource(polygon_layer_payload)
-        print("Polygon layer:", polygon_layer_id)
+        layer_id = create_resource(layer_payload)
+        print("Polygon layer:", layer_id)
         
-        polygon_geom = "POLYGON ((10.0 30.0, 40.0 40.0, 40.0 0.0, 20.0 10.0, 10.0 30.0))"
-        create_feature(polygon_layer_id, polygon_geom)
-        print("Добавлен полигон")
-    return polygon_layer_id
+        create_feature(layer_id, geom)
+    return layer_id
 
 
 if __name__ == '__main__':
     group_id = get_resource_id()
-    point_layer_id = get_point_layer_id(group_id)
+    point_layer_id = get_layer_id(group_id, TOP_LAYER_KEYNAME, POINT_LAYER_PAYLOAD, INITIAL_POINT_GEOM)
 
     url = f"{BASE_URL}/api/resource/{point_layer_id}/feature/1"
     while True:

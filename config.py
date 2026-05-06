@@ -34,7 +34,7 @@ def generate_config_file(ngw_host: str, ngw_login: str, ngw_password: str, top_l
 
 if __name__ == '__main__':
     group_id = gm.get_resource_id()
-    top_layer_id = gm.get_point_layer_id(group_id)
-    bottom_layer_id = gm.get_polygon_layer_id(group_id)
+    top_layer_id = gm.get_layer_id(group_id, gm.TOP_LAYER_KEYNAME, gm.POINT_LAYER_PAYLOAD, gm.INITIAL_POINT_GEOM)
+    bottom_layer_id = gm.get_layer_id(group_id, gm.BOTTOM_LAYER_KEYNAME, gm.POLYGON_LAYER_PAYLOAD, gm.INITIAL_POLYGON_GEOM)
 
     generate_config_file(gm.BASE_URL, gm.USERNAME, gm.PASSWORD, int(top_layer_id), ["id"], 100, int(bottom_layer_id), ["id"], 200, "intersection", "./tmp/", 10, "console_message", 788612936)
