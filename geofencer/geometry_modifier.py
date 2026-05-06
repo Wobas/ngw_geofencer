@@ -55,7 +55,20 @@ POLYGON_LAYER_PAYLOAD = {
 INITIAL_POINT_GEOM = "POINT (0.0 0.0)"
 INITIAL_POLYGON_GEOM = "POLYGON ((10.0 30.0, 40.0 40.0, 40.0 0.0, 20.0 10.0, 10.0 30.0))"
 
-def create_resource(payload:dict) -> str:
+def create_resource(payload: dict) -> int:
+    """
+    Create resource based on dict with payload.
+    
+    Parameters
+    ---------
+    payload : dict
+        payload information to create empty resource with specified parent, keyname and display name
+
+    Returns
+    -------
+    int
+        ID of the created resource for the current web-gis
+    """
     url = f"{BASE_URL}/api/resource/"
     r = requests.post(
         url,
@@ -66,7 +79,23 @@ def create_resource(payload:dict) -> str:
     r.raise_for_status()
     return r.json()["id"]
 
-def create_feature(layer_id:str, geom:str):
+def create_feature(layer_id: int, geom: str) -> dict[int, int]:
+    """
+    Create feature in IFeatureLayer based on dict with payload.
+    
+    Parameters
+    ---------
+    layer_id : int
+        ID of the parent IFeatureLayer
+    
+    geom : str
+        string with geometry of the feature in the WKT format
+
+    Returns
+    -------
+    dict[int, int]
+        returns the dict with id of created feature and version of the IFeatureLayer
+    """
     url = f"{BASE_URL}/api/resource/{layer_id}/feature/?srs=4326"
     payload = {
         "geom": geom,
@@ -81,7 +110,20 @@ def create_feature(layer_id:str, geom:str):
     r.raise_for_status()
     return r.json()
 
-def search_resource(resource_keyname) -> str|None:
+def search_resource(resource_keyname: str) -> int|None:
+    """
+    Search resource by a keyname.
+    
+    Parameters
+    ---------
+    resource_keyname : str
+        keyname of the target resource
+
+    Returns
+    -------
+    int | None
+        return contains None if the resource wasn't found, and int with them ID if the resource was found
+    """
     url = f"{BASE_URL}/api/resource/search/?keyname={resource_keyname}"
     r = requests.get(
         url,
@@ -92,18 +134,45 @@ def search_resource(resource_keyname) -> str|None:
     else: 
         return None
 
-def get_resource_id() -> str:
+def get_resource_id() -> int:
+    """
+    Search resource by a default keyname, if not found, it creates.
+
+    Returns
+    -------
+    int
+        return int ID
+    """
     group_id = search_resource(GROUP_KEYNAME)
     if (not group_id):
         group_id = create_resource(GROUP_PAYLOAD)
         print("Создана группа:", group_id)
     return group_id
 
-def get_layer_id(parent_id:str, layer_keyname:str, layer_payload:dict, geom:str) -> str:
+def get_layer_id(parent_id: int, layer_keyname: str, layer_payload: dict, geom: str) -> int:
+    """
+    Search layer by a keyname, if not found, it creates.
+    
+    Parameters
+    ---------
+    parent_id : int
+        id of the parent to create layer in the specified directory
+    layer_keyname : str
+        keyname of the target layer
+    layer_payload : dict
+        payload information to create empty layer with specified parent, keyname, display name, geometry type and srs
+    geom : str
+        string with geometry in WKT format
+
+    Returns
+    -------
+    int | None
+        return contains None if the resource wasn't found, and int with them ID if the resource was found
+    """
     layer_id = search_resource(layer_keyname)
     if (not layer_id):
         layer_payload = layer_payload
-        layer_payload["resource"]["parent"] = {"id": int(parent_id)}
+        layer_payload["resource"]["parent"] = {"id": parent_id}
 
         layer_id = create_resource(layer_payload)
         print("Polygon layer:", layer_id)

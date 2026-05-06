@@ -2,11 +2,15 @@ import os
 import sqlite3
 from datetime import datetime, timezone
 
-    
-DB_PATH = "/app/data/events.db"
+
+DB_PATH = "./app/data/events.db"
 TABLE_NAME = "events"
 
-def init_db():
+
+def init_db() -> None:
+    """
+    Initialize data base for writing events.
+    """
     db_dir = os.path.dirname(DB_PATH)
     if db_dir and not os.path.exists(db_dir):
         os.makedirs(db_dir, exist_ok=True)
@@ -32,10 +36,24 @@ def init_db():
     conn.commit()
     conn.close()
 
-def write_event(message: str, geom1_wkt, geom2_wkt):
+def write_event(message: str, geom1_wkt: str, geom2_wkt: str) -> None:
+    """
+    Write geofence event to the data base.
+
+    Parameters
+    ----------
+    message : str
+        text message info about the event
+
+    geom1_wkt : str
+        string with geometry of top layer feature in WKT format
+
+    geom2_wkt : str
+        string with geometry of bottom layer feature in WKT format 
+    """
     ts = int(datetime.now(timezone.utc).timestamp())
 
-    conn = sqlite3.connect("/app/data/events.db")
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     cursor.execute("""
@@ -46,7 +64,17 @@ def write_event(message: str, geom1_wkt, geom2_wkt):
     conn.commit()
     conn.close()
 
-def read_all_events():
+def read_all_events() -> list[tuple[int, str, str, str]]:
+    """
+    Get all events from the database ordered by timestamp descending.
+
+    Returns
+    -------
+    list[tuple[int, str, str, str]]
+        list containing all events, where each event is a tuple:
+        (ts, message, geom1_wkt, geom2_wkt)
+        Returns empty list if no events exist.
+    """
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
@@ -61,7 +89,17 @@ def read_all_events():
 
     return rows
 
-def read_last_event():
+def read_last_event() -> tuple[int, str, str, str] | None:
+    """
+    Get last event from the database ordered by timestamp descending.
+
+    Returns
+    -------
+    tuple[int, str, str, str]
+        containing event tuple:
+        (ts, message, geom1_wkt, geom2_wkt)
+        Returns None if no events exist.
+    """
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
@@ -100,9 +138,9 @@ def read_last_seconds(seconds_number: int):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
-    cursor.execute("""
+    cursor.execute(f"""
         SELECT ts, message, geom_1, geom_2
-        FROM events
+        FROM {TABLE_NAME}
         WHERE ts BETWEEN ? AND ?
         ORDER BY ts DESC
     """, (ten_minutes_ago, now))

@@ -4,3 +4,4 @@ config.json
 geometry_modifier/
 some_text.txt
 geofencer/__pycache__
+app/
