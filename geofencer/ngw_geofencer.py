@@ -95,15 +95,18 @@ class NGWGeofencer:
         """
         The main function called to start the program.
         """
-        status = self.__get_layers_gpkg()
-        if (status['status'] == 'ok'):
-            status = self.__save_file_with_cur_versions()
+        while True:
+            status = self.__get_layers_gpkg()
             if (status['status'] == 'ok'):
-                schedule.every(self.update_period_sec).seconds.do(lambda: self.__check_update())
+                status = self.__save_file_with_cur_versions()
+                if (status['status'] == 'ok'):
+                    schedule.every(self.update_period_sec).seconds.do(lambda: self.__check_update())
 
-                while True:
-                    schedule.run_pending()
-                    time.sleep(1)
+                    while True:
+                        schedule.run_pending()
+                        time.sleep(1)
+
+            time.sleep(self.update_period_sec)
 
     def __get_layers_gpkg(self) -> dict:
         """

@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 import pandas as pd
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import data_broker
 
@@ -14,8 +14,8 @@ def run_flask():
     app.run(debug=False, host='0.0.0.0', port=5000, use_reloader=False)
 
 @app.route('/')
-def hello():
-    return "Hello, World!"
+def index():
+    return send_from_directory(app.static_folder, 'index.html')
 
 @app.route('/logs_all', methods=['GET'])
 def get_logs_all():

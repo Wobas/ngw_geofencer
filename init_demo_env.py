@@ -24,7 +24,7 @@ def generate_config_file(ngw_host: str, ngw_login: str, ngw_password: str, top_l
         'OPTIONAL_PARAMETERS_TG_USER_ID': tg_user_id
     }
 
-    with open('geofencer/.env', 'w', encoding='utf-8') as f:
+    with open('.env', 'w', encoding='utf-8') as f:
         for key, value in env_variables.items():
             if ' ' in str(value) or any(c in str(value) for c in '=#!$%^&*()'):
                 f.write(f'{key}="{value}"\n')

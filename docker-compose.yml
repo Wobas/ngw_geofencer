@@ -1,10 +1,24 @@
-version: '3.9'
-
 services:
-  web:
-    build: ./app
+  app:
+    build: .
+    env_file:
+      - .env
     ports:
       - "5000:5000"
     volumes:
-      - ./app:/app
-    restart: always
+      - data:/app/geofencer/app
+      - tmp:/app/geofencer/tmp
+    restart: unless-stopped
+
+  simulator:
+    env_file:
+      - .env
+    profiles:
+      - demo
+    build: .
+    command: python geometry_modifier.py
+    restart: "no"
+
+volumes:
+  data:
+  tmp:

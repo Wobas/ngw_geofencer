@@ -1,10 +1,14 @@
+import os
 import requests
 import json
 import time
+from dotenv import load_dotenv
 
-BASE_URL = "https://sandbox.nextgis.com"
-USERNAME = "administrator"
-PASSWORD = "demodemo"
+load_dotenv()
+BASE_URL = os.getenv("NGW_HOST", "https://sandbox.nextgis.com")
+USERNAME = os.getenv("NGW_LOGIN", "administrator")
+PASSWORD = os.getenv("NGW_PASSWORD", "demodemo")
+GEOMETRY_MODIFIER_INTERVAL_SEC = int(os.getenv("GEOMETRY_MODIFIER_INTERVAL_SEC", "5"))
 
 PARENT_ID = 0
 GROUP_KEYNAME = "resource_group_geofencing"
@@ -205,4 +209,4 @@ if __name__ == '__main__':
                 else:
                     print("Ошибка:", response.status_code, response.text)
 
-                time.sleep(5)
+                time.sleep(GEOMETRY_MODIFIER_INTERVAL_SEC)
