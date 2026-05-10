@@ -1,0 +1,14 @@
+.git
+.env
+node_modules
+web/node_modules
+dist
+web/dist
+.parcel-cache
+web/.parcel-cache
+geofencer/__pycache__
+geofencer/app
+geofencer/tmp
+geofencer/static
+geofencing.log
+*.pyc

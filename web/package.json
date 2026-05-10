@@ -1,0 +1,19 @@
+{
+  "name": "ngw-geofencer",
+  "private": true,
+  "scripts": {
+    "build": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && parcel build index.html --dist-dir dist --public-url /static/",
+    "dev": "parcel index.html --host 0.0.0.0 --port 1234"
+  },
+  "dependencies": {
+    "ol": "^10.7.0",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "parcel": "^2.12.0",
+    "typescript": "^5.9.3"
+  }
+}

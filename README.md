@@ -1,28 +1,63 @@
 # ngw_geofencer
-NGW geofencer project
 
-First, you need to initialize the file with the environment variables (.env).  
-To do this, open the command prompt in the root of the project and run config.py:
+## Docker
 
 ```bash
-python .\config.py
+cp .env.example .env
+docker compose up --build
 ```
 
-Now you are ready to launch the demo of the project.  
-To do this, you have to switch current directory to the geofencer. So, use following command:
+Demo with simulator:
 
 ```bash
-cd .\geofencer\
+python ./init_demo_env.py
+docker compose --profile demo up --build
 ```
 
-Now you should build and run docker image:
+Open:
+
+```text
+http://localhost:5000
+```
+
+## Local
+
+Install:
 
 ```bash
-docker build -t ngw-geofencer .
-docker run -p 5000:5000 ngw-geofencer
+cp .env.example .env
+python -m venv env
+. env/bin/activate
+. env/Scripts/activate # Windows
+pip install -r requirements.txt
+cd web
+npm install
 ```
 
-# View logs
-To view logs open following link while docker is running: 
-- [all_logs](http://localhost:5000/logs_all)
-- [last_log](http://localhost:5000/logs_last)
+Flask app:
+
+```bash
+cd geofencer
+python app.py
+```
+
+Geofencer:
+
+```bash
+cd geofencer
+python ngw_geofencer.py
+```
+
+Simulator:
+
+```bash
+cd geofencer
+python geometry_modifier.py
+```
+
+Frontend dev server:
+
+```bash
+cd web
+npm run dev
+```
