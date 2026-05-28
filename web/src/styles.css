@@ -70,3 +70,139 @@ h1 {
   min-width: 0;
   height: 100vh;
 }
+
+.events-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+}
+
+.event-item {
+  padding: 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: white;
+}
+
+.event-item:hover {
+  background: #f5f5f5;
+  transform: translateX(4px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.event-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+
+.event-time {
+  color: #666;
+  font-family: monospace;
+}
+
+.event-badge {
+  background: #007bff;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+}
+
+.event-geometries {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.geom-type {
+  font-size: 11px;
+  background: #f0f0f0;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+.event-message {
+  font-size: 12px;
+  color: #333;
+  line-height: 1.4;
+}
+
+.details-content {
+  padding: 16px 0;
+}
+
+.detail-item {
+  margin-bottom: 16px;
+  padding: 8px;
+  background: #f9f9f9;
+  border-radius: 6px;
+}
+
+.detail-item strong {
+  display: block;
+  margin-bottom: 8px;
+  color: #555;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.wkt-code {
+  display: block;
+  font-family: monospace;
+  font-size: 11px;
+  background: #f0f0f0;
+  padding: 8px;
+  border-radius: 4px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.geom-type-badge {
+  display: inline-block;
+  background: #28a745;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.message-full {
+  white-space: pre-wrap;
+  font-size: 13px;
+  line-height: 1.5;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.refresh-btn, .back-btn {
+  padding: 8px 12px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.refresh-btn:hover, .back-btn:hover {
+  background: #0056b3;
+}
+
+.sidebar__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.full-width {
+  grid-column: 1 / -1;
+}

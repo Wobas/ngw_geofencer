@@ -3,4 +3,10 @@ export type EventLog = {
   message: string;
   geom1: string;
   geom2: string;
+}
+
+export type ParsedGeometry = {
+  wkt: string;
+  type: string;
+  coordinates: any;
 };

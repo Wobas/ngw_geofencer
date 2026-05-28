@@ -150,7 +150,7 @@ def get_resource_id() -> int:
     group_id = search_resource(GROUP_KEYNAME)
     if (not group_id):
         group_id = create_resource(GROUP_PAYLOAD)
-        print("Создана группа:", group_id)
+        print("Group created:", group_id)
     return group_id
 
 def get_layer_id(parent_id: int, layer_keyname: str, layer_payload: dict, geom: str) -> int:
@@ -179,7 +179,7 @@ def get_layer_id(parent_id: int, layer_keyname: str, layer_payload: dict, geom: 
         layer_payload["resource"]["parent"] = {"id": parent_id}
 
         layer_id = create_resource(layer_payload)
-        print("Polygon layer:", layer_id)
+        print(f"Created {layer_payload['vector_layer']['geometry_type']} layer:", layer_id)
         
         create_feature(layer_id, geom)
     return layer_id

@@ -4,24 +4,13 @@ import os
 import schedule
 import time
 import base64
+from typing import Any
 from datetime import datetime
-from osgeo import gdal, ogr, osr
+from osgeo import ogr
 
 import notifications.bot_for_message as bot_for_message
 import data_broker
 from dotenv import load_dotenv
-
-
-import logging
-
-LOG_FILENAME = 'geofencing.log'
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-handler = logging.FileHandler(LOG_FILENAME, mode='a', encoding='utf-8', delay=False)
-formatter = logging.Formatter('%(asctime)s - %(message)s')
-handler.setFormatter(formatter)
-logger.addHandler(handler)
 
 ogr.UseExceptions()
 
@@ -36,26 +25,30 @@ class NGWGeofencer:
     def __init__(self):
         load_dotenv()
         # general parameters
-        self.ngw_host = os.getenv("NGW_HOST")
-        self.ngw_login = os.getenv("NGW_LOGIN")
-        self.ngw_password = os.getenv("NGW_PASSWORD")
-        
+        self.ngw_host = self.get_env("NGW_HOST")
+        self.ngw_login = self.get_env("NGW_LOGIN")
+        self.ngw_password = self.get_env("NGW_PASSWORD")
+
+        self.ngw_auth = (self.ngw_login, self.ngw_password)
+
         # top layer parameters
-        self.top_layer_id = int(os.getenv("TOP_LAYER_ID"))
-        self.top_layer_attr_params = os.getenv("TOP_LAYER_ATTRIBUTE_PARAMS_FOR_MESSAGE")
-        self.top_layer_buffer = int(os.getenv("TOP_LAYER_BUFFER"))
-        
+        self.top_layer_id = self.get_env("TOP_LAYER_ID", cast=int)
+        self.top_layer_attr_params = self.get_env("TOP_LAYER_ATTRIBUTE_PARAMS_FOR_MESSAGE")
+        self.top_layer_buffer = self.get_env("TOP_LAYER_BUFFER", cast=int)
+
         # bottom layer parameters
-        self.bottom_layer_id = int(os.getenv("BOTTOM_LAYER_ID"))
-        self.bottom_layer_attr_params = os.getenv("BOTTOM_LAYER_ATTRIBUTE_PARAMS_FOR_MESSAGE")
-        self.bottom_layer_buffer = int(os.getenv("BOTTOM_LAYER_BUFFER"))
-        
+        self.bottom_layer_id = self.get_env("BOTTOM_LAYER_ID", cast=int)
+        self.bottom_layer_attr_params = self.get_env("BOTTOM_LAYER_ATTRIBUTE_PARAMS_FOR_MESSAGE")
+        self.bottom_layer_buffer = self.get_env("BOTTOM_LAYER_BUFFER", cast=int)
+
         # script working parameters
-        self.geofence_mode = os.getenv("SCRIPT_PARAMETERS_GEOFENCE_MODE")
-        self.tmp_files_path = os.getenv("SCRIPT_PARAMETERS_TMP_FILES_PATH")
-        self.update_period_sec = int(os.getenv("SCRIPT_PARAMETERS_UPDATE_PERIOD_SEC"))
-        self.message_type = os.getenv("SCRIPT_PARAMETERS_MESSAGE_TYPE")
-        self.tg_user_id = os.getenv("OPTIONAL_PARAMETERS_TG_USER_ID")
+        self.geofence_mode = self.get_env("SCRIPT_PARAMETERS_GEOFENCE_MODE")
+        self.tmp_files_path = self.get_env("SCRIPT_PARAMETERS_TMP_FILES_PATH")
+        self.update_period_sec = self.get_env("SCRIPT_PARAMETERS_UPDATE_PERIOD_SEC", cast=int)
+        self.message_type = self.get_env("SCRIPT_PARAMETERS_MESSAGE_TYPE")
+
+        # optional
+        self.tg_user_id = self.get_env("OPTIONAL_PARAMETERS_TG_USER_ID", required=False)
 
         print(  f"hostname: {self.ngw_host}\n"
                 f"login: {self.ngw_login}\n"
@@ -67,6 +60,19 @@ class NGWGeofencer:
                 f"update period in secs: {self.update_period_sec}\n"
                 f"message type: {self.message_type}\n"
                 )
+
+    def get_env(self, name: str, cast: type = str, *, required: bool = True) -> Any:
+        value = os.getenv(name)
+    
+        if value is None:
+            if not required:
+                return None
+            raise ValueError(f"The required environment variable is missing: '{name}'")
+            
+        try:
+            return cast(value)
+        except (ValueError, TypeError) as e:
+            raise ValueError(f"Incorrect format of the variable '{name}' (expected {cast.__name__}): '{value}'") from e
 
     def __send_message(self, message: str, flag: bool) -> None:
         """
@@ -81,9 +87,6 @@ class NGWGeofencer:
         flag : bool
             means that the changes have been found. If not, then this message doesn't need to be saved
         """
-        if flag:
-            logger.info(message)
-
         if (self.message_type == "console_message"):
             print(message)
         elif (self.message_type == "telegram_message"):
@@ -121,12 +124,13 @@ class NGWGeofencer:
         req_top_layer = f'{self.ngw_host}/api/resource/{self.top_layer_id}/export?context=IFeatureLayer&format=GPKG&zipped=false'
         req_bottom_layer = f'{self.ngw_host}/api/resource/{self.bottom_layer_id}/export?context=IFeatureLayer&format=GPKG&zipped=false'
         
-        top_layer_info = requests.get(req_top_layer, stream = True, auth = (self.ngw_login, self.ngw_password))
-        bottom_layer_info = requests.get(req_bottom_layer, stream = True, auth = (self.ngw_login, self.ngw_password))
+        top_layer_info = requests.get(req_top_layer, stream = True, auth = self.ngw_auth)
+        bottom_layer_info = requests.get(req_bottom_layer, stream = True, auth = self.ngw_auth)
 
         if (top_layer_info.status_code == 200 and bottom_layer_info.status_code == 200):            
             layers_path = os.path.join(self.tmp_files_path, 'layers')
-            if (not os.path.isdir(layers_path)): os.makedirs(layers_path)
+            if (not os.path.isdir(layers_path)): 
+                os.makedirs(layers_path)
             
             file_name_and_path_top_layer = os.path.join(layers_path, f'layer_{self.top_layer_id}.gpkg')
             file_name_and_path_bottom_layer = os.path.join(layers_path, f'layer_{self.bottom_layer_id}.gpkg')
@@ -155,7 +159,8 @@ class NGWGeofencer:
                 # close the connection anyway (due to stream = True)
                 top_layer_info.close()
                 bottom_layer_info.close()
-        else: message = f'Request errors when getting GPKG files! Top layer status: {top_layer_info.status_code}; Bottom layer status: {bottom_layer_info.status_code}'
+        else: 
+            message = f'Request errors when getting GPKG files! Top layer status: {top_layer_info.status_code}; Bottom layer status: {bottom_layer_info.status_code}'
 
         top_layer_info.close()
         bottom_layer_info.close()
@@ -207,7 +212,8 @@ class NGWGeofencer:
                 if __debug__:
                     print(f'Data file was successfully saved in {file_name_and_path}\n')
                 return {'status':'ok'}
-            else: message = f'Error when reading data from the server to save data file. Top layer status: {top_layer_version_info["message"]}; Bottom layer status: {bottom_layer_version_info["message"]}'
+            else: 
+                message = f'Error when reading data from the server to save data file. Top layer status: {top_layer_version_info["message"]}; Bottom layer status: {bottom_layer_version_info["message"]}'
 
         except KeyError as e:
             message = f"Error when saving data file: {e}"
@@ -238,12 +244,13 @@ class NGWGeofencer:
             status key contains error or ok, if error then message key contains explanations, if ok then version key contains the version, epoch key contains the epoch and fields_to_display key contains the dict with attributes of current layer
         """
         req = f'{self.ngw_host}/api/resource/{layer_id}'
-        layer_info = requests.get(req, auth = (self.ngw_login, self.ngw_password))
+        layer_info = requests.get(req, auth = self.ngw_auth)
 
         if (layer_info.status_code == 200):
             versioning_info = layer_info.json()['feature_layer']['versioning']
             versioning_status = versioning_info['enabled']
-            if (not versioning_status): message = f'Versioning for layer with id {layer_id} is turned off'
+            if (not versioning_status): 
+                message = f'Versioning for layer with id {layer_id} is turned off'
             else: 
                 fields = layer_info.json()['feature_layer']['fields']
                 fields_to_display = {
@@ -252,7 +259,8 @@ class NGWGeofencer:
                     if field['keyname'] in (self.top_layer_attr_params if layer_id == self.top_layer_id else self.bottom_layer_attr_params)
                 }
                 return {'status':'ok', 'version': versioning_info['latest'], 'epoch': versioning_info['epoch'], 'fields_to_display': fields_to_display}
-        else: message = f'Request error when getting version and epoch for the layer with id {layer_id} from the server: {layer_info.status_code}'
+        else: 
+            message = f'Request error when getting version and epoch for the layer with id {layer_id} from the server: {layer_info.status_code}'
         return self.__handle_error(message)
 
     def __check_update(self):
@@ -286,8 +294,10 @@ class NGWGeofencer:
                             both_layers_differences = sorted(top_layer_dif_info['dif_list']+bottom_layer_dif_info['dif_list'], key=self.__get_time)
                             self.__check_geometry(both_layers_differences)
                             return {'status':'ok'}
-                        else: message = save_file_info['message']
-                    else: message = f'Error when getting difference list of features. For top layer: {top_layer_dif_info["message"]}; For bottom layer: {bottom_layer_dif_info["message"]}'
+                        else: 
+                            message = save_file_info['message']
+                    else: 
+                        message = f'Error when getting difference list of features. For top layer: {top_layer_dif_info["message"]}; For bottom layer: {bottom_layer_dif_info["message"]}'
                 
                 elif last_saved_version_top_layer < latest_version_top_layer['version']:
                     top_layer_dif_info = self.__get_difference_between_versions(self.top_layer_id, last_saved_version_top_layer, latest_version_top_layer['version'], last_saved_epoch_top_layer)
@@ -298,8 +308,10 @@ class NGWGeofencer:
                             layer_differences = sorted(top_layer_dif_info['dif_list'], key=self.__get_time)
                             self.__check_geometry(layer_differences)
                             return {'status':'ok'}
-                        else: message = save_file_info['message']
-                    else: message = f'Error when getting difference list of features. For top layer: {top_layer_dif_info["message"]}'
+                        else: 
+                            message = save_file_info['message']
+                    else: 
+                        message = f'Error when getting difference list of features. For top layer: {top_layer_dif_info["message"]}'
                 
                 elif last_saved_version_bottom_layer < latest_version_bottom_layer['version']:
                     bottom_layer_dif_info = self.__get_difference_between_versions(self.bottom_layer_id, last_saved_version_bottom_layer, latest_version_bottom_layer['version'], last_saved_epoch_bottom_layer)
@@ -310,15 +322,19 @@ class NGWGeofencer:
                             layer_differences = sorted(bottom_layer_dif_info['dif_list'], key=self.__get_time)
                             self.__check_geometry(layer_differences)
                             return {'status':'ok'}
-                        else: message = save_file_info['message']
-                    else: message = f'Error when getting difference list of features. For bottom layer: {bottom_layer_dif_info["message"]}'
+                        else: 
+                            message = save_file_info['message']
+                    else: 
+                        message = f'Error when getting difference list of features. For bottom layer: {bottom_layer_dif_info["message"]}'
 
                 else:
                     if __debug__:
                         self.__send_message('From last upd nothing was changed', False)
                     return {'status':'ok'}    
-            else: message = f'Error when getting last saved version of layers. For top layer: {top_layer_info["message"]}; For bottom layer: {bottom_layer_info["message"]}'
-        else: message = f'Error when getting version of layers. For top layer: {latest_version_top_layer["message"]}; For bottom layer: {latest_version_bottom_layer["message"]}'
+            else: 
+                message = f'Error when getting last saved version of layers. For top layer: {top_layer_info["message"]}; For bottom layer: {bottom_layer_info["message"]}'
+        else: 
+            message = f'Error when getting version of layers. For top layer: {latest_version_top_layer["message"]}; For bottom layer: {latest_version_bottom_layer["message"]}'
         return self.__handle_error(message)
 
     def __check_geometry(self, both_layers_differences: list):
@@ -365,7 +381,8 @@ class NGWGeofencer:
                     min_x, max_x, min_y, max_y = top_object.GetEnvelope()
                     
                     buffer = self.bottom_layer_buffer+self.top_layer_buffer
-                    if (bottom_layer_geometry not in (ogr.wkbPolygon, ogr.wkbMultiPolygon) and buffer < 0): buffer = 0
+                    if (bottom_layer_geometry not in (ogr.wkbPolygon, ogr.wkbMultiPolygon) and buffer < 0): 
+                        buffer = 0
                     bottom_layer_geometry.SetSpatialFilterRect(min_x-1-buffer, min_y-1-buffer, max_x+1+buffer, max_y+1+buffer)
 
                     bottom_layer_geometry.ResetReading()
@@ -393,9 +410,7 @@ class NGWGeofencer:
                             bottom_layer_attributes = [{self.bottom_layer_attr_dict[field]: bottom_feature.GetField(self.bottom_layer_attr_dict[field])} for field in self.bottom_layer_attr_dict]
                             message =  (f"Top layer object with id {item['fid']} intersects with the bottom layer object with id {bottom_feature.GetFID()} by action {item['action']}.\n"
                                         f"Attributes of top layer object: {top_layer_attributes}\n"
-                                        f"Attributes of bottom layer object: {bottom_layer_attributes}\n"
-                                        f"Top object geometry: {top_object.ExportToWkt()}\n"
-                                        f"Bottom object geometry: {bottom_geom.ExportToWkt()}\n")
+                                        f"Attributes of bottom layer object: {bottom_layer_attributes}\n")
                             self.__send_message(message, True)
                             data_broker.write_event(message, top_object.ExportToWkt(), bottom_geom.ExportToWkt())
 
@@ -414,7 +429,8 @@ class NGWGeofencer:
                     min_x, max_x, min_y, max_y = polygon.GetEnvelope()
 
                     buffer = self.bottom_layer_buffer+self.top_layer_buffer
-                    if (top_layer_geometry not in (ogr.wkbPolygon, ogr.wkbMultiPolygon) and buffer < 0): buffer = 0
+                    if (top_layer_geometry not in (ogr.wkbPolygon, ogr.wkbMultiPolygon) and buffer < 0): 
+                        buffer = 0
                     top_layer_geometry.SetSpatialFilterRect(min_x-1-buffer, min_y-1-buffer, max_x+1+buffer, max_y+1+buffer)
 
 
@@ -437,9 +453,7 @@ class NGWGeofencer:
                             
                             message =  (f"Top layer object with id {top_layer_object.GetFID()} intersects with the bottom layer object with id {item['fid']} by action {item['action']}.\n"
                                         f"Attributes of top layer object: {top_layer_attributes}\n"
-                                        f"Attributes of bottom layer object: {bottom_layer_attributes}\n"
-                                        f"Top object geometry: {point_geom.ExportToWkt()}\n"
-                                        f"Bottom object geometry: {polygon.ExportToWkt()}\n")
+                                        f"Attributes of bottom layer object: {bottom_layer_attributes}\n")
                             self.__send_message(message, True) 
                             data_broker.write_event(message, point_geom.ExportToWkt(), polygon.ExportToWkt())
 
@@ -479,7 +493,7 @@ class NGWGeofencer:
             out_feature.SetFID(fid)
 
             req_attributes = f'{self.ngw_host}/api/resource/{layer_id}/feature/{fid}?label=false&geom=false&dt_format=obj'
-            req_info = requests.get(req_attributes, auth = (self.ngw_login, self.ngw_password))
+            req_info = requests.get(req_attributes, auth = self.ngw_auth)
             if (req_info.status_code == 200):
                 attributes = req_info.json()['fields']
                 for key, value in attributes.items():
@@ -527,14 +541,14 @@ class NGWGeofencer:
             status key contains error or ok, if error then message key contains explanations, if ok then dif_list key contains the list of updated features
         """
         req = f'{self.ngw_host}/api/resource/{layer_id}/feature/changes/check?epoch={epoch}&initial={previous_version}&target={latest_version}&geom_format=geojson'
-        difference_versions_info = requests.get(req, auth = (self.ngw_login, self.ngw_password))
+        difference_versions_info = requests.get(req, auth = self.ngw_auth)
         
         if (difference_versions_info.status_code == 200):
             fetch = difference_versions_info.json()['fetch']
             if __debug__:
                 print(f'Request link for layer with id {layer_id} between versions {previous_version} and {latest_version}: {req}')
                 print(f'Link for more information: {fetch}')
-            result = requests.get(fetch, auth = (self.ngw_login, self.ngw_password))
+            result = requests.get(fetch, auth = self.ngw_auth)
             if (result.status_code == 200):
                 json_result = [item for item in result.json() if "vid" in item] 
 
@@ -554,9 +568,12 @@ class NGWGeofencer:
                         print("UPDATED AND SORTED JSON BY TIMESTAMPS:", sorted_by_time_json, "\n")
                                     
                     return {'status':'ok', 'dif_list':sorted_by_time_json}
-                else: message = requests_for_versions['message']
-            else: message = f"Error when getting details about changes for the layer {layer_id} between versions {previous_version} and {latest_version} for epoch {epoch}"
-        else: message = f"Error when getting the list of features for the layer {layer_id} between versions {previous_version} and {latest_version} for epoch {epoch}"
+                else: 
+                    message = requests_for_versions['message']
+            else:
+                message = f"Error when getting details about changes for the layer {layer_id} between versions {previous_version} and {latest_version} for epoch {epoch}"
+        else: 
+            message = f"Error when getting the list of features for the layer {layer_id} between versions {previous_version} and {latest_version} for epoch {epoch}"
         return self.__handle_error(message)
 
     def __get_versions_information(self, layer_id: int, last_version: int, latest_version: int) -> dict:
@@ -583,13 +600,15 @@ class NGWGeofencer:
         versions_information = []
         for version in range(last_version, latest_version+1):
             req = f'{self.ngw_host}/api/resource/{layer_id}/feature/version/{version}'
-            current_version_info = requests.get(req, auth = (self.ngw_login, self.ngw_password))
+            current_version_info = requests.get(req, auth = self.ngw_auth)
             if (current_version_info.status_code == 200):
                 versions_information.append(current_version_info.json())
             elif __debug__:
                     print(f"Error while getting feature of version {version} for the layer with id {layer_id}\n")
-        if (versions_information == []): self.__handle_error("Error during receiving versions data")
-        else: return {'status':'ok', 'versions_information':versions_information}
+        if (versions_information == []): 
+            return self.__handle_error("Error during receiving versions data")
+        else: 
+            return {'status':'ok', 'versions_information':versions_information}
 
     def __get_last_saved_version_and_epoch_by_id(self, layer_id: int) -> dict:
         """
@@ -606,8 +625,8 @@ class NGWGeofencer:
         dict
             status key contains error or ok, if error then message key contains explanations, if ok then version key contains the last saved version and epoch key contains the last saved epoch of current layer
         """
+        data_file_name_and_path = os.path.join(self.tmp_files_path, self.DATA_FILE_NAME)
         try:
-            data_file_name_and_path = os.path.join(self.tmp_files_path, self.DATA_FILE_NAME)
             with open(data_file_name_and_path, 'r') as data_file:
                 data = json.load(data_file)
 
@@ -647,7 +666,8 @@ class NGWGeofencer:
     def __get_time(self, item):
         if 'time' in item:
             return datetime.fromisoformat(item['time'])
-        else: return datetime.min
+        else: 
+            return datetime.min
 
 
 
